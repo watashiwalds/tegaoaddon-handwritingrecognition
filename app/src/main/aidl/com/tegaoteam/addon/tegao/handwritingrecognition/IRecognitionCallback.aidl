@@ -1,5 +1,8 @@
+// IRecognitionCallback.aidl
 package com.tegaoteam.addon.tegao.handwritingrecognition;
 
+import java.util.List;
+
 interface IRecognitionCallback {
-    void requestFinished(List<String> suggestion);
+    void requestFinished(in List<String> suggestion);
 }
