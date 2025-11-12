@@ -14,18 +14,25 @@ class RecognitionService : Service() {
         trustedUid = if (callerPackageName == trustedPackageName) callingUid else -1
     }
 
+    private var recognitionCallback: IRecognitionCallback? = null
+
     private val binder = object: IRecognitionService.Stub() {
-        override fun requestInputSuggestions(input: ByteArray?): List<String?>? {
+        override fun requestInputSuggestions(input: ByteArray?) {
             val callingUid = getCallingUid()
             if (trustedUid == null) firstVerify(callingUid)
+            if (callingUid != trustedUid) recognitionCallback?.onRecognized(null)
 
-            // null return occasions
-            if (callingUid != trustedUid) return null
-            if (input == null) return null
+            RecognitionModel.instance.recognizeThisWriting(input?: ByteArray(0))
+        }
 
-            val result = RecognitionModel.instance.recognizeThisWriting(input)
+        override fun registerCallback(callback: IRecognitionCallback) {
+            Log.i("RecognitionService", "Callback registered $callback")
+            val callingUid = getCallingUid()
+            if (trustedUid == null) firstVerify(callingUid)
+            if (callingUid != trustedUid) return
 
-            return result
+            recognitionCallback = callback
+            RecognitionModel.instance.setRecognitionCallback{ suggestions -> callback.onRecognized(suggestions) }
         }
     }
 

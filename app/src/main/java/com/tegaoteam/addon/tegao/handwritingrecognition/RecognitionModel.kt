@@ -28,6 +28,8 @@ class RecognitionModel private constructor(private val context: Context) {
 
     private var modelOutputShape: IntArray? = null
 
+    private var recognitionCallback: ((List<String?>?) -> Unit)? = null
+
     // read JIS-Character mapping from csv (jis_map.csv)
     private fun loadJISMap(jisCsvReader: BufferedReader) {
         val mapJob = ioScope.launch {
@@ -70,10 +72,14 @@ class RecognitionModel private constructor(private val context: Context) {
         loadTFLiteModel(modelReader)
     }
 
+    fun setRecognitionCallback(callback: (List<String?>?) -> Unit) {
+        recognitionCallback = callback
+    }
+
     fun isModelReady() = (jisToChar != null && modelInterpreter != null)
 
     // transforming input image (byteArray) to proper model input
-    fun inputTransformer(rawInput: ByteArray): ByteBuffer {
+    private fun inputTransformer(rawInput: ByteArray): ByteBuffer {
         val bitmap = BitmapFactory
             .decodeByteArray(rawInput, 0, rawInput.size)
             .copy(Bitmap.Config.ARGB_8888, false)
@@ -97,11 +103,10 @@ class RecognitionModel private constructor(private val context: Context) {
         return buffer
     }
 
-    suspend fun runRecognitionModel(input: ByteArray): List<Pair<Int, Float>>? {
+    private suspend fun runRecognitionModel(input: ByteArray): List<Pair<Int, Float>> {
         // return structure of the model: Array with 1 dim, inside nesting 3036 Pair<Index, Percentage>
         val outputData = Array(1) { FloatArray(modelOutputShape!![1]) }
         modelInterpreter!!.run(inputTransformer(input), outputData)
-        Log.i("RecognitionModel", "Model finished processing")
         val topCharIndex = outputData[0]
             .mapIndexed { idx, value -> idx to value }
             .sortedByDescending { it.second }
@@ -111,13 +116,27 @@ class RecognitionModel private constructor(private val context: Context) {
         return topCharIndex
     }
 
-    fun recognizeThisWriting(input: ByteArray): List<String>? {
-        if (!isModelReady()) return null
+    private fun assembleCallbackResult(modelOutput: List<Pair<Int, Float>>): List<String> {
+        val suggestions = mutableListOf<String>()
+        modelOutput.forEach {
+            suggestions.add(jisToChar!!.entries.elementAt(it.first).value)
+        }
+        return suggestions
+    }
+
+    fun recognizeThisWriting(input: ByteArray) {
+        if (!isModelReady()) return
         processJob?.cancel() // cancel any performing processing to do new one
 
-        Log.i("RecognitionModel", "Model started processing...")
-        var result: List<String>? = null
-        return result
+        processJob = defaultScope.launch {
+            Log.i("RecognitionModel", "Model started processing...")
+            val modelOutput = runRecognitionModel(input)
+            Log.i("RecognitionModel", "Model finished processing")
+            withContext(Dispatchers.Main) {
+                recognitionCallback?.invoke(assembleCallbackResult(modelOutput))
+                Log.i("RecognitionModel", "Model called for callback function ${recognitionCallback != null}")
+            }
+        }
     }
 
     companion object {
