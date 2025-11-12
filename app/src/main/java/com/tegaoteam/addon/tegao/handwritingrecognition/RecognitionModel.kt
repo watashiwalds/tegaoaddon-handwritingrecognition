@@ -18,7 +18,7 @@ import java.nio.ByteOrder
 import androidx.core.graphics.scale
 import kotlinx.coroutines.Job
 
-class RecognitionModel private constructor(context: Context) {
+class RecognitionModel private constructor(private val context: Context) {
     private val ioScope = CoroutineScope(Dispatchers.IO)
     private var jisToChar: Map<Int, String>? = null
     private var modelInterpreter: Interpreter? = null
@@ -78,16 +78,37 @@ class RecognitionModel private constructor(context: Context) {
             .decodeByteArray(rawInput, 0, rawInput.size)
             .copy(Bitmap.Config.ARGB_8888, false)
             .scale(IMAGE_SIZE, IMAGE_SIZE)
+
         val buffer = ByteBuffer.allocateDirect(IMAGE_SIZE * IMAGE_SIZE * 3 * 4).order(ByteOrder.nativeOrder())
         for (y in 0 until IMAGE_SIZE)
             for (x in 0 until IMAGE_SIZE) {
                 val pixel = bitmap[x, y]
-                buffer.putFloat(Color.red(pixel) / 255.0f)
-                buffer.putFloat(Color.green(pixel) / 255.0f)
-                buffer.putFloat(Color.blue(pixel) / 255.0f)
+                if (Color.alpha(pixel) < 128) {
+                    buffer.putFloat(255f)
+                    buffer.putFloat(255f)
+                    buffer.putFloat(255f)
+                } else {
+                    buffer.putFloat(0f)
+                    buffer.putFloat(0f)
+                    buffer.putFloat(0f)
+                }
             }
         buffer.rewind()
         return buffer
+    }
+
+    suspend fun runRecognitionModel(input: ByteArray): List<Pair<Int, Float>>? {
+        // return structure of the model: Array with 1 dim, inside nesting 3036 Pair<Index, Percentage>
+        val outputData = Array(1) { FloatArray(modelOutputShape!![1]) }
+        modelInterpreter!!.run(inputTransformer(input), outputData)
+        Log.i("RecognitionModel", "Model finished processing")
+        val topCharIndex = outputData[0]
+            .mapIndexed { idx, value -> idx to value }
+            .sortedByDescending { it.second }
+            .take(10)
+            .takeWhile { it.second >= 0.05 }
+        Log.i("RecognitionModel", "Model result: $topCharIndex")
+        return topCharIndex
     }
 
     fun recognizeThisWriting(input: ByteArray): List<String>? {
@@ -96,17 +117,6 @@ class RecognitionModel private constructor(context: Context) {
 
         Log.i("RecognitionModel", "Model started processing...")
         var result: List<String>? = null
-        processJob = defaultScope.launch {
-            val outputData = Array(1) { FloatArray(modelOutputShape!![1]) }
-            modelInterpreter!!.run(inputTransformer(input), outputData)
-            withContext(Dispatchers.Main) {
-                Log.i("RecognitionModel", "Model finished processing")
-                val top10 = outputData[0]
-                    .mapIndexed { idx, value -> idx to value }
-                Log.i("RecognitionModel", "Model result: ${top10}")
-            }
-        }
-
         return result
     }
 
