@@ -3,6 +3,7 @@ package com.tegaoteam.addon.tegao.handwritingrecognition
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import android.util.Log
 
 class RecognitionService : Service() {
     private var trustedUid: Int? = null
@@ -26,5 +27,23 @@ class RecognitionService : Service() {
         }
     }
 
-    override fun onBind(intent: Intent): IBinder = binder
+    override fun onCreate() {
+        super.onCreate()
+        Log.i("RecognitionService", "Service created, ready for functions")
+    }
+
+    override fun onBind(intent: Intent): IBinder {
+        Log.i("RecognitionService", "Service bind with correct intent call, caller unidentified until first use")
+        return binder
+    }
+
+    override fun onUnbind(intent: Intent?): Boolean {
+        Log.i("RecognitionService", "Service unbind from $trustedUid which was ${if (trustedUid != -1) "trusted" else "not trusted"}")
+        return super.onUnbind(intent)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.i("RecognitionService", "Service destroyed, memory freed")
+    }
 }
