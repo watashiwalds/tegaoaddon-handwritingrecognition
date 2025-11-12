@@ -20,7 +20,7 @@ import kotlinx.coroutines.Job
 
 class RecognitionModel private constructor(private val context: Context) {
     private val ioScope = CoroutineScope(Dispatchers.IO)
-    private var jisToChar: Map<Int, String>? = null
+    private var jisToChar: List<String>? = null
     private var modelInterpreter: Interpreter? = null
 
     private val defaultScope = CoroutineScope(Dispatchers.Default)
@@ -28,18 +28,18 @@ class RecognitionModel private constructor(private val context: Context) {
 
     private var modelOutputShape: IntArray? = null
 
-    private var recognitionCallback: ((List<String?>?) -> Unit)? = null
+    private var recognitionCallback: ((List<String>) -> Unit)? = null
 
     // read JIS-Character mapping from csv (jis_map.csv)
     private fun loadJISMap(jisCsvReader: BufferedReader) {
         val mapJob = ioScope.launch {
-            val mapResult = mutableMapOf<Int, String>()
+            val listResult = mutableListOf<String>()
             jisCsvReader.lines().forEach { line ->
                 val entry = line.split(",")
-                mapResult[entry[0].toIntOrNull()?: 0] = entry[1]
+                listResult.add(entry[1])
             }
             withContext(Dispatchers.Main) {
-                jisToChar = mapResult
+                jisToChar = listResult
                 Log.i("RecognitionModel", "CSV read finished with ${jisToChar?.size} entries")
             }
         }
@@ -72,7 +72,7 @@ class RecognitionModel private constructor(private val context: Context) {
         loadTFLiteModel(modelReader)
     }
 
-    fun setRecognitionCallback(callback: (List<String?>?) -> Unit) {
+    fun setRecognitionCallback(callback: (List<String>) -> Unit) {
         recognitionCallback = callback
     }
 
@@ -119,8 +119,9 @@ class RecognitionModel private constructor(private val context: Context) {
     private fun assembleCallbackResult(modelOutput: List<Pair<Int, Float>>): List<String> {
         val suggestions = mutableListOf<String>()
         modelOutput.forEach {
-            suggestions.add(jisToChar!!.entries.elementAt(it.first).value)
+            jisToChar?.get(it.first)?.let { char -> suggestions.add(char) }
         }
+        Log.i("RecognitionModel", "Callback result assembled: $suggestions")
         return suggestions
     }
 
@@ -132,9 +133,11 @@ class RecognitionModel private constructor(private val context: Context) {
             Log.i("RecognitionModel", "Model started processing...")
             val modelOutput = runRecognitionModel(input)
             Log.i("RecognitionModel", "Model finished processing")
+            val suggestions = assembleCallbackResult(modelOutput)
+            Log.i("RecognitionModel", "Before change to Main: $suggestions")
             withContext(Dispatchers.Main) {
-                recognitionCallback?.invoke(assembleCallbackResult(modelOutput))
-                Log.i("RecognitionModel", "Model called for callback function ${recognitionCallback != null}")
+                recognitionCallback?.invoke(suggestions)
+                Log.i("RecognitionModel", "Model called for callback function $suggestions ${recognitionCallback != null}")
             }
         }
     }

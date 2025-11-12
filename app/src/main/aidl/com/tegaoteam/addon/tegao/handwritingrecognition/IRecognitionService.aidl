@@ -1,7 +1,6 @@
 // IRecognitionService.aidl
 package com.tegaoteam.addon.tegao.handwritingrecognition;
 
-import java.util.List;
 import com.tegaoteam.addon.tegao.handwritingrecognition.IRecognitionCallback;
 
 interface IRecognitionService {

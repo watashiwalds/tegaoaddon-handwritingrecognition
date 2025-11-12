@@ -32,7 +32,10 @@ class RecognitionService : Service() {
             if (callingUid != trustedUid) return
 
             recognitionCallback = callback
-            RecognitionModel.instance.setRecognitionCallback{ suggestions -> callback.onRecognized(suggestions) }
+            RecognitionModel.instance.setRecognitionCallback{ suggestions ->
+                callback.onRecognized(suggestions.toTypedArray())
+                Log.i("RecognitionModel", "Doing callback with $suggestions")
+            }
         }
     }
 
