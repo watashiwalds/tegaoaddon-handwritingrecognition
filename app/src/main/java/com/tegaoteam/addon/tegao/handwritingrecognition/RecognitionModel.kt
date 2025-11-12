@@ -1,7 +1,11 @@
 package com.tegaoteam.addon.tegao.handwritingrecognition
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.util.Log
+import androidx.core.graphics.get
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -11,12 +15,18 @@ import java.io.BufferedReader
 import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import androidx.core.graphics.scale
+import kotlinx.coroutines.Job
 
 class RecognitionModel private constructor(context: Context) {
     private val ioScope = CoroutineScope(Dispatchers.IO)
-
     private var jisToChar: Map<Int, String>? = null
     private var modelInterpreter: Interpreter? = null
+
+    private val defaultScope = CoroutineScope(Dispatchers.Default)
+    private var processJob: Job? = null
+
+    private var modelOutputShape: IntArray? = null
 
     // read JIS-Character mapping from csv (jis_map.csv)
     private fun loadJISMap(jisCsvReader: BufferedReader) {
@@ -47,6 +57,7 @@ class RecognitionModel private constructor(context: Context) {
             val interpreter = Interpreter(modelBuffer)
             withContext(Dispatchers.Main) {
                 modelInterpreter = interpreter
+                modelOutputShape = modelInterpreter!!.getOutputTensor(0).shape()
                 Log.i("RecognitionModel", "TFLite model loaded into memory")
             }
         }
@@ -59,18 +70,48 @@ class RecognitionModel private constructor(context: Context) {
         loadTFLiteModel(modelReader)
     }
 
-    fun isModelReady() = jisToChar != null
+    fun isModelReady() = (jisToChar != null && modelInterpreter != null)
 
-    companion object {
-        private val randomChars = listOf<Char>('漢','字','梵','語','千','文','鬘','唐','聖','照','権','実','鏡','弘','仁','真','名','仮','平','万','葉','子','供','煙','草','天')
-        private val randomNumbers = listOf<Int>(0,1,2,3,4,5,6,7,8,9,10)
-        fun getSomeRandomChars(): MutableList<String> {
-            Log.i("RecognitionModel", "Call received, return dummy data")
-            val result = mutableListOf<String>()
-            for (i in 0..randomNumbers.random()) result.add(randomChars.random().toString())
-            return result
+    // transforming input image (byteArray) to proper model input
+    fun inputTransformer(rawInput: ByteArray): ByteBuffer {
+        val bitmap = BitmapFactory
+            .decodeByteArray(rawInput, 0, rawInput.size)
+            .copy(Bitmap.Config.ARGB_8888, false)
+            .scale(IMAGE_SIZE, IMAGE_SIZE)
+        val buffer = ByteBuffer.allocateDirect(IMAGE_SIZE * IMAGE_SIZE * 3 * 4).order(ByteOrder.nativeOrder())
+        for (y in 0 until IMAGE_SIZE)
+            for (x in 0 until IMAGE_SIZE) {
+                val pixel = bitmap[x, y]
+                buffer.putFloat(Color.red(pixel) / 255.0f)
+                buffer.putFloat(Color.green(pixel) / 255.0f)
+                buffer.putFloat(Color.blue(pixel) / 255.0f)
+            }
+        buffer.rewind()
+        return buffer
+    }
+
+    fun recognizeThisWriting(input: ByteArray): List<String>? {
+        if (!isModelReady()) return null
+        processJob?.cancel() // cancel any performing processing to do new one
+
+        Log.i("RecognitionModel", "Model started processing...")
+        var result: List<String>? = null
+        processJob = defaultScope.launch {
+            val outputData = Array(1) { FloatArray(modelOutputShape!![1]) }
+            modelInterpreter!!.run(inputTransformer(input), outputData)
+            withContext(Dispatchers.Main) {
+                Log.i("RecognitionModel", "Model finished processing")
+                val top10 = outputData[0]
+                    .mapIndexed { idx, value -> idx to value }
+                Log.i("RecognitionModel", "Model result: ${top10}")
+            }
         }
 
+        return result
+    }
+
+    companion object {
+        const val IMAGE_SIZE = 96
         val instance by lazy { RecognitionModel(AddonApplication.instance) }
     }
 }

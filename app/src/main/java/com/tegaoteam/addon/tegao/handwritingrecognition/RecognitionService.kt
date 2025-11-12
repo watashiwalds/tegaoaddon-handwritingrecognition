@@ -18,24 +18,25 @@ class RecognitionService : Service() {
         override fun requestInputSuggestions(input: ByteArray?): List<String?>? {
             val callingUid = getCallingUid()
             if (trustedUid == null) firstVerify(callingUid)
+
+            // null return occasions
             if (callingUid != trustedUid) return null
+            if (input == null) return null
 
-            val model = RecognitionModel.instance
+            val result = RecognitionModel.instance.recognizeThisWriting(input)
 
-            val test = RecognitionModel.getSomeRandomChars().apply {
-                add(input?.size.toString())
-            }
-            return test
+            return result
         }
     }
 
     override fun onCreate() {
         super.onCreate()
-        Log.i("RecognitionService", "Service created, ready for functions")
+        RecognitionModel.instance
+        Log.i("RecognitionService", "Service created")
     }
 
     override fun onBind(intent: Intent): IBinder {
-        Log.i("RecognitionService", "Service bind with correct intent call, caller unidentified until first use")
+        Log.i("RecognitionService", "Service bind with correct explicit intent call, caller unidentified until first use")
         return binder
     }
 
@@ -46,6 +47,6 @@ class RecognitionService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        Log.i("RecognitionService", "Service destroyed, memory freed")
+        Log.i("RecognitionService", "Service destroyed")
     }
 }
