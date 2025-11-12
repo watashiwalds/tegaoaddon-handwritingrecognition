@@ -4,19 +4,23 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.tensorflow.lite.Interpreter
 import java.io.BufferedReader
+import java.io.InputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 class RecognitionModel private constructor(context: Context) {
-    private var initJob = Job()
-    private val initScope = CoroutineScope(Dispatchers.IO + initJob)
+    private val ioScope = CoroutineScope(Dispatchers.IO)
 
     private var jisToChar: Map<Int, String>? = null
-    fun loadMapAndModel(jisCsvReader: BufferedReader) {
-        // read JIS-Character mapping from csv (jis_map.csv)
-        initScope.launch {
+    private var modelInterpreter: Interpreter? = null
+
+    // read JIS-Character mapping from csv (jis_map.csv)
+    private fun loadJISMap(jisCsvReader: BufferedReader) {
+        val mapJob = ioScope.launch {
             val mapResult = mutableMapOf<Int, String>()
             jisCsvReader.lines().forEach { line ->
                 val entry = line.split(",")
@@ -29,9 +33,30 @@ class RecognitionModel private constructor(context: Context) {
         }
     }
 
+    // load TFLite model into memory, wrapped by Interpreter
+    private fun loadTFLiteModel(modelAsset: InputStream) {
+        val modelJob = ioScope.launch {
+            // load model data to memory
+            val modelBytes = modelAsset.readBytes()
+            val modelBuffer = ByteBuffer.allocateDirect(modelBytes.size).apply {
+                order(ByteOrder.nativeOrder()) // set to use CPU's byteOrder
+                put(modelBytes) // put the bytes from input to memory
+                rewind() // set the read cursor to start
+            }
+            // register the model under TensorflowLite's interpreter
+            val interpreter = Interpreter(modelBuffer)
+            withContext(Dispatchers.Main) {
+                modelInterpreter = interpreter
+                Log.i("RecognitionModel", "TFLite model loaded into memory")
+            }
+        }
+    }
+
     init {
         val csvReader = context.assets.open("jis_map.csv").bufferedReader()
-        loadMapAndModel(csvReader)
+        val modelReader = context.assets.open("model_float16.tflite")
+        loadJISMap(csvReader)
+        loadTFLiteModel(modelReader)
     }
 
     fun isModelReady() = jisToChar != null

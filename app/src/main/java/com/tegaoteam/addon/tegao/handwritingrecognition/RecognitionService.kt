@@ -20,6 +20,8 @@ class RecognitionService : Service() {
             if (trustedUid == null) firstVerify(callingUid)
             if (callingUid != trustedUid) return null
 
+            val model = RecognitionModel.instance
+
             val test = RecognitionModel.getSomeRandomChars().apply {
                 add(input?.size.toString())
             }
