@@ -111,7 +111,7 @@ class RecognitionModel private constructor(private val context: Context) {
             .mapIndexed { idx, value -> idx to value }
             .sortedByDescending { it.second }
             .take(10)
-            .takeWhile { it.second >= 0.05 }
+            .takeWhile { it.second >= 0.01 }
         Log.i("RecognitionModel", "Model result: $topCharIndex")
         return topCharIndex
     }
