@@ -20,7 +20,7 @@ import kotlinx.coroutines.Job
 
 class RecognitionModel private constructor(private val context: Context) {
     private val ioScope = CoroutineScope(Dispatchers.IO)
-    private var jisToChar: List<String>? = null
+    private var jisToChar: Map<Int,String>? = null
     private var modelInterpreter: Interpreter? = null
 
     private val defaultScope = CoroutineScope(Dispatchers.Default)
@@ -33,13 +33,13 @@ class RecognitionModel private constructor(private val context: Context) {
     // read JIS-Character mapping from csv (jis_map.csv)
     private fun loadJISMap(jisCsvReader: BufferedReader) {
         val mapJob = ioScope.launch {
-            val listResult = mutableListOf<String>()
+            val mapResult = mutableMapOf<Int, String>()
             jisCsvReader.lines().forEach { line ->
                 val entry = line.split(",")
-                listResult.add(entry[1])
+                mapResult[entry[0].toInt()] = (entry[1])
             }
             withContext(Dispatchers.Main) {
-                jisToChar = listResult
+                jisToChar = mapResult
                 Log.i("RecognitionModel", "CSV read finished with ${jisToChar?.size} entries")
             }
         }
