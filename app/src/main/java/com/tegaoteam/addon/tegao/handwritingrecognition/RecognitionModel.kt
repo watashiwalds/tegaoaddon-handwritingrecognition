@@ -119,7 +119,10 @@ class RecognitionModel private constructor(private val context: Context) {
     private fun assembleCallbackResult(modelOutput: List<Pair<Int, Float>>): List<String> {
         val suggestions = mutableListOf<String>()
         modelOutput.forEach {
-            jisToChar?.get(it.first)?.let { char -> suggestions.add(char) }
+            jisToChar?.get(it.first)?.let { char ->
+                suggestions.add(char)
+                smallKanas[char]?.let { smol -> suggestions.add(smol) }
+            }
         }
         Log.i("RecognitionModel", "Callback result assembled: $suggestions")
         return suggestions
@@ -143,6 +146,13 @@ class RecognitionModel private constructor(private val context: Context) {
     }
 
     companion object {
+        private val smallKanas = mapOf<String, String>(
+            "あ" to "ぁ", "い" to "ぃ", "う" to "ぅ", "え" to "ぇ", "お" to "ぉ",
+            "や" to "ゃ", "ゆ" to "ゅ", "よ" to "ょ",
+            "わ" to "ゎ",
+            "つ" to "っ"
+        )
+
         const val IMAGE_SIZE = 96
         val instance by lazy { RecognitionModel(AddonApplication.instance) }
     }
