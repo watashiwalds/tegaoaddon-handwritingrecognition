@@ -9,6 +9,8 @@ class AddonApplication: Application() {
     }
 
     companion object {
+        const val parentPackage = "com.tegaoteam.application.tegao"
+
         lateinit var instance: Application
             private set
     }

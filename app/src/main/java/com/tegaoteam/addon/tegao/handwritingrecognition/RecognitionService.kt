@@ -4,10 +4,11 @@ import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import android.util.Log
+import com.tegaoteam.addon.tegao.handwritingrecognition.process.CharacterRecognizer
 
 class RecognitionService : Service() {
     private var trustedUid: Int? = null
-    private var trustedPackageName = "com.tegaoteam.application.tegao"
+    private var trustedPackageName = AddonApplication.Companion.parentPackage
     private fun firstVerify(callingUid: Int) {
         val callerPackages = packageManager.getPackagesForUid(callingUid)
         val callerPackageName = callerPackages?.firstOrNull()
@@ -18,30 +19,31 @@ class RecognitionService : Service() {
 
     private val binder = object: IRecognitionService.Stub() {
         override fun requestInputSuggestions(input: ByteArray?) {
+            Log.i("RecognitionService", "Received request to suggesting by array ${input?.size}")
             val callingUid = getCallingUid()
             if (trustedUid == null) firstVerify(callingUid)
             if (callingUid != trustedUid) recognitionCallback?.onRecognized(null)
+            Log.i("RecognitionService", "Request confirmed by trusted package")
 
-            RecognitionModel.instance.recognizeThisWriting(input?: ByteArray(0))
+            CharacterRecognizer.Companion.instance.recognizeThisWriting(input?: ByteArray(0))
         }
 
         override fun registerCallback(callback: IRecognitionCallback) {
-            Log.i("RecognitionService", "Callback registered $callback")
+            Log.i("RecognitionService", "Request to register callback $callback")
             val callingUid = getCallingUid()
             if (trustedUid == null) firstVerify(callingUid)
             if (callingUid != trustedUid) return
 
             recognitionCallback = callback
-            RecognitionModel.instance.setRecognitionCallback{ suggestions ->
+            CharacterRecognizer.Companion.instance.setRecognitionCallback{ suggestions ->
                 callback.onRecognized(suggestions.toTypedArray())
-                Log.i("RecognitionModel", "Doing callback with $suggestions")
             }
         }
     }
 
     override fun onCreate() {
         super.onCreate()
-        RecognitionModel.instance
+        CharacterRecognizer.Companion.instance
         Log.i("RecognitionService", "Service created")
     }
 
