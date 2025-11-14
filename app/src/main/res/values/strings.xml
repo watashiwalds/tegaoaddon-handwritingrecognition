@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">Tegao: HandwritingRecognition</string>
+    <string name="addon_important_notifyChannel_name">System</string>
+    <string name="addon_important_notifyChannel_desc">Notifications related to this add-on\'s integrity and functional</string>
+    <string name="addon_notify_rememberToUninstall_label">Tegao: HandwritingRecognition still in your phone</string>
+    <string name="addon_notify_rememberToUninstall_content">Uninstall the add-on if you no longer using Tegao (T.T)</string>
+
 </resources>

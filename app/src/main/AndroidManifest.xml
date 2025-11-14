@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".AddonApplication"
         android:allowBackup="true"
@@ -18,7 +20,7 @@
             android:exported="true"/>
 
         <receiver
-            android:name=".uninstaller.TegaoRemovedReceiver"
+            android:name=".notify.TegaoRemovedReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.PACKAGE_FULLY_REMOVED" />

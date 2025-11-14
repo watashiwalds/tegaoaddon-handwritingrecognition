@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tegao: Nhận diện chữ viết tay</string>
+    <string name="addon_important_notifyChannel_name">Hệ thống</string>
+    <string name="addon_important_notifyChannel_desc">Các thông báo quan trọng liên quan đến tính toàn vẹn của phần mở rộng này</string>
+    <string name="addon_notify_rememberToUninstall_label">Tegao: Nhận diện chữ viết tay vẫn còn trong máy</string>
+    <string name="addon_notify_rememberToUninstall_content">Hãy gỡ cài đặt nếu bạn không còn dùng Tegao nhé (T.T)</string>
+</resources>
